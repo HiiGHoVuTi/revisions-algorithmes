@@ -73,6 +73,7 @@ library
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.16.4.0
+                    , deepseq
                     -- TODO(Maxime): remove this dependency
                     , containers
 
@@ -109,4 +110,5 @@ test-suite algorithmes-test
         base ^>=4.16.4.0,
         tasty,
         tasty-quickcheck,
+        tasty-bench,
         algorithmes

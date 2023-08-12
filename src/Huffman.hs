@@ -3,13 +3,15 @@ module Huffman (huffman) where
 import BinaryTree
 import Data.Map
 import PriorityQueue as Q
+import Data.Bifunctor
 
 huffman :: String -> BTree () (Char, [Bool])
 huffman = labelTree . huffmanTree . occurrences
 
 occurrences :: String -> SkewHeap Int (BTree () Char)
 occurrences =
-  Prelude.foldl (\sh (c, n) -> Q.insert (BLeaf c) n sh) mempty
+  Q.fromList
+    . fmap (first BLeaf)
     . toList
     . Prelude.foldl (\m k -> insertWith (+) k 1 m) mempty
 

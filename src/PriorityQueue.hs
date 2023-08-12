@@ -1,15 +1,18 @@
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module PriorityQueue where
 
 import BinaryTree
 import BinomialTree qualified as BT
+import Control.DeepSeq
 import Data.Coerce
+import Data.Data
 import Data.Foldable
 import Data.Function
-import Data.List (sortOn)
-import Data.Maybe
-import RoseTree
+import Data.List (sortOn, unfoldr)
+import Data.Tuple
+import GHC.Generics
 
 class Monoid a => PriorityQueue a where
   type Elem a
@@ -18,10 +21,12 @@ class Monoid a => PriorityQueue a where
   findMin :: a -> Maybe (Priority a, Elem a)
   deleteMin :: a -> (a, Maybe (Priority a, Elem a))
   insert :: Elem a -> Priority a -> a -> a
-  decreasePriority :: (Elem a -> Bool) -> (Priority a -> Priority a) -> a -> a
 
 singleton :: PriorityQueue a => Elem a -> Priority a -> a
 singleton e p = insert e p mempty
+
+fromList :: PriorityQueue a => [(Elem a, Priority a)] -> a
+fromList = foldl (\q (e, p) -> insert e p q) mempty
 
 peek :: PriorityQueue a => a -> Maybe (Elem a)
 peek = fmap snd . findMin
@@ -29,51 +34,45 @@ peek = fmap snd . findMin
 peekPriority :: PriorityQueue a => a -> Maybe (Priority a)
 peekPriority = fmap fst . findMin
 
-newtype SkewHeap p e = MkSkewHeap {unSkewHeap :: NonStrictBTree (p, e)}
-  deriving (Show, Eq, Functor)
+queueSort :: forall a. (PriorityQueue a, Elem a ~ ()) => Proxy a -> [Priority a] -> [Priority a]
+queueSort _ = fmap fst . unfoldr (fmap swap . sequence . deleteMin @a) . fromList . zip (repeat ())
+
+instance Ord p => PriorityQueue [(p, e)] where
+  type Elem [(p, e)] = e
+  type Priority [(p, e)] = p
+
+  findMin = minimumByMaybe (compare `on` fst)
+  deleteMin xs = let ys = sortOn fst xs in (tail ys, Just (head ys))
+  insert e p = ((p, e) :)
+
+newtype SkewHeap p e = MkSkewHeap {unSkewHeap :: BTree (p, e) ()}
+  deriving (Show, Eq, Generic, NFData)
 
 instance Ord p => Semigroup (SkewHeap p e) where
-  MkSkewHeap (NSBT (BLeaf ())) <> a = a
-  a <> MkSkewHeap (NSBT (BLeaf ())) = a
-  a@(MkSkewHeap (NSBT (BNode (p, pe) pl pr))) <> b@(MkSkewHeap (NSBT (BNode (q, _) _ _)))
+  MkSkewHeap (BLeaf ()) <> a = a
+  a <> MkSkewHeap (BLeaf ()) = a
+  a@(MkSkewHeap (BNode (p, pe) pl pr)) <> b@(MkSkewHeap (BNode (q, _) _ _))
     | p > q = b <> a
     | otherwise =
-        MkSkewHeap . coerce $ BNode (p, pe) pr (coerce (MkSkewHeap (NSBT pl) <> b))
+        MkSkewHeap . coerce $ BNode (p, pe) pr (coerce (MkSkewHeap pl <> b))
 
 instance Ord p => Monoid (SkewHeap p e) where
-  mempty = MkSkewHeap (NSBT (BLeaf ()))
+  mempty = MkSkewHeap (BLeaf ())
 
 instance Ord p => PriorityQueue (SkewHeap p e) where
   type Elem (SkewHeap p e) = e
   type Priority (SkewHeap p e) = p
 
   insert e p sk = coerce (BNode (p, e) (BLeaf ()) (BLeaf ())) <> sk
-  findMin = root . unNSBT . unSkewHeap
+  findMin = root . unSkewHeap
   deleteMin (MkSkewHeap tree) = case tree of
-    NSBT (BLeaf ()) -> (mempty, Nothing)
-    NSBT (BNode a b c) -> (coerce b <> coerce c, Just a)
-  decreasePriority key φ heap = MkSkewHeap $
-    case unNSBT (unSkewHeap heap) of
-      BLeaf () -> NSBT (BLeaf ())
-      BNode (p, e) l r
-        | key e -> NSBT (BNode (φ p, e) l r)
-        | otherwise ->
-            let l' = decreasePriority key φ (MkSkewHeap $ NSBT l)
-                r' = decreasePriority key φ (MkSkewHeap $ NSBT r)
-             in -- percolate-up
-                NSBT $ case (peekPriority l' <= Just p, peekPriority r' <= Just p) of
-                  (False, False) -> BNode (p, e) (coerce l') (coerce r')
-                  (True, False) ->
-                    let (a, b, c) = fromJust (unNode (coerce l'))
-                     in BNode a (BNode (p, e) b c) (coerce r')
-                  (False, True) ->
-                    let (a, b, c) = fromJust (unNode (coerce r'))
-                     in BNode a (coerce l') (BNode (p, e) b c)
-                  _ -> error "impossible."
+    BLeaf () -> (mempty, Nothing)
+    BNode a b c -> (coerce b <> coerce c, Just a)
 
--- NOTE(Maxime): beaucoup d'invariants
+-- NOTE(Maxime): beaucoup d'invariants,
+-- implémentation peu respectueuse du réel algorithme qui demande beaucoup plus de pointeurs pour se débarrasser des logs
 newtype FibonacciHeap p e = MkFibo {unFibo :: BT.BinomialForest (p, e)}
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, NFData)
 
 reduceForest :: Ord p => BT.BinomialForest (p, e) -> FibonacciHeap p e
 -- FIXME(Maxime): le tri est de la triche
@@ -98,9 +97,14 @@ instance Ord p => PriorityQueue (FibonacciHeap p e) where
   type Elem (FibonacciHeap p e) = e
   type Priority (FibonacciHeap p e) = p
 
-  findMin = minimumByMaybe (compare `on` fst) . fmap fst . mapMaybe (unRose . BT.unBinomial) . unFibo
-  insert e p (MkFibo roses) = reduceForest (BT.singleton (p, e) : roses)
+  findMin = minimumByMaybe (compare `on` fst) . fmap BT.top . unFibo
+  insert e p (MkFibo roses) = MkFibo (BT.singleton (p, e) : roses)
 
-  -- TODO(Maxime):
-  deleteMin = undefined
-  decreasePriority = undefined
+  deleteMin fh =
+    let min' = findMin fh
+        breakMin n tree
+          | fst (BT.top tree) == n = BT.binomialChildren tree
+          | otherwise = [tree]
+     in case min' of
+          Nothing -> (mempty, Nothing)
+          Just (n, _) -> (reduceForest (concatMap (breakMin n) (unFibo fh)), min')

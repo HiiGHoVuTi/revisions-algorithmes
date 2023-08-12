@@ -1,19 +1,17 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module BinaryTree where
 
+import Control.DeepSeq
 import Data.Bifunctor
+import GHC.Generics
 
 data BTree a b = BLeaf b | BNode a (BTree a b) (BTree a b)
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, NFData)
 
 instance Bifunctor BTree where
   bimap _ g (BLeaf x) = BLeaf (g x)
   bimap f g (BNode x l r) = BNode (f x) (bimap f g l) (bimap f g r)
-
-newtype NonStrictBTree a = NSBT {unNSBT :: BTree a ()}
-  deriving (Eq, Show)
-
-instance Functor NonStrictBTree where
-  fmap f (NSBT a) = NSBT (first f a)
 
 root :: BTree a b -> Maybe a
 root BLeaf {} = Nothing
