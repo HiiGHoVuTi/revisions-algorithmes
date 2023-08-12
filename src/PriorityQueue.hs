@@ -47,7 +47,7 @@ instance Ord p => PriorityQueue (SkewHeap p e) where
   type Elem (SkewHeap p e) = e
   type Priority (SkewHeap p e) = p
 
-  insert e p sk = coerce (BNode (p,e) (BLeaf ()) (BLeaf ())) <> sk
+  insert e p sk = coerce (BNode (p, e) (BLeaf ()) (BLeaf ())) <> sk
   findMin = root . unNSBT . unSkewHeap
   deleteMin (MkSkewHeap tree) = case tree of
     NSBT (BLeaf ()) -> (mempty, Nothing)
@@ -99,7 +99,7 @@ instance Ord p => PriorityQueue (FibonacciHeap p e) where
   type Priority (FibonacciHeap p e) = p
 
   findMin = minimumByMaybe (compare `on` fst) . fmap fst . mapMaybe (unRose . BT.unBinomial) . unFibo
-  insert e p (MkFibo roses) = MkFibo (BT.singleton (p, e) : roses)
+  insert e p (MkFibo roses) = reduceForest (BT.singleton (p, e) : roses)
 
   -- TODO(Maxime):
   deleteMin = undefined
