@@ -64,6 +64,7 @@ library
                     , BinomialTree
                     , PriorityQueue
                     , Set
+                    , Map
                     , Huffman
                     , Graph
                     , Dijkstra

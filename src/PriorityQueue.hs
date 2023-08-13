@@ -15,6 +15,7 @@ import Data.List (sortOn, unfoldr)
 import Data.Maybe
 import Data.Tuple
 import GHC.Generics
+import Map
 import Set hiding (deleteMin)
 import Set qualified
 
@@ -74,19 +75,6 @@ instance Ord p => PriorityQueue (SkewHeap p e) where
   deleteMin (MkSkewHeap tree) = case tree of
     BLeaf () -> (mempty, Nothing)
     BNode a b c -> (coerce b <> coerce c, Just a)
-
-newtype First a = First {getFirst :: a}
-  deriving (Generic, NFData)
-
-instance Eq a => Eq (First (a, b)) where
-  First (a, _) == First (b, _) = a == b
-
-instance Ord a => Ord (First (a, b)) where
-  compare (First (a, _)) (First (b, _)) = compare a b
-
-instance Bounded a => Bounded (First (a, b)) where
-  maxBound = First (maxBound, undefined)
-  minBound = First (minBound, undefined)
 
 type RBQueue p e = RBTree (First (p, e))
 
