@@ -96,7 +96,7 @@ instance Ord p => PriorityQueue (RBQueue p e) where
 
   findMin = coerce . leftmost
   deleteMin = coerce . Set.deleteMin
-  insert e p = Set.insert (coerce (p, e))
+  insert e p = Set.insertDup (coerce (p, e))
 
 -- NOTE(Maxime): beaucoup d'invariants,
 -- implémentation peu respectueuse du réel algorithme qui demande beaucoup plus de pointeurs pour se débarrasser des logs

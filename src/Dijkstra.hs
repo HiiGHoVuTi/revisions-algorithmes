@@ -29,5 +29,5 @@ dijkstra _ g start done =
         | otherwise -> go toVisit visited
         where
           update (p', u') = PriorityQueue.insert (u' : u : us) (p <> p')
-          visited = Set.insertNoDup u v
+          visited = Set.insert u v
           toVisit = foldr update q0 (wNeighbours g u)

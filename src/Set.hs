@@ -44,16 +44,16 @@ makeRootBlack :: RBTree a -> RBTree a
 makeRootBlack Nil = Nil
 makeRootBlack (Node _ l a r) = Node B l a r
 
-insert :: Ord a => a -> RBTree a -> RBTree a
-insert x xs = makeRootBlack (go xs)
+insertDup :: Ord a => a -> RBTree a -> RBTree a
+insertDup x xs = makeRootBlack (go xs)
   where
     go Nil = Node R Nil x Nil
     go (Node c l y r)
       | x <= y = balance c (go l) y r
       | otherwise = balance c l y (go r)
 
-insertNoDup :: Ord a => a -> RBTree a -> RBTree a
-insertNoDup x xs = makeRootBlack (go xs)
+insert :: Ord a => a -> RBTree a -> RBTree a
+insert x xs = makeRootBlack (go xs)
   where
     go Nil = Node R Nil x Nil
     go (Node c l y r)
