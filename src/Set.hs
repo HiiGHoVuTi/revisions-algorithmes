@@ -26,7 +26,6 @@ rightmost Nil = Nothing
 rightmost (Node _ _ x Nil) = Just x
 rightmost (Node _ _ _ r) = rightmost r
 
-
 member :: Ord a => a -> RBTree a -> Bool
 member _ Nil = False
 member x (Node _ l y r)
@@ -68,7 +67,6 @@ deleteMin (Node _ Nil x r) = (r, Just x)
 deleteMin (Node c l x r) = (balance c l' x r, out)
   where
     (l', out) = deleteMin l
-
 
 instance Ord a => Semigroup (RBTree a) where
   a <> b = foldr insert a (toList b)

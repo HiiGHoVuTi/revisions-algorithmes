@@ -23,11 +23,11 @@ dijkstra _ g start done =
     go q v = case PriorityQueue.deleteMin @pq q of
       (_, Nothing) -> Nothing
       (_, Just (_, [])) -> error "impossible"
-      (q0, Just (p, u:us))
-        | done u -> Just (reverse (u:us))
+      (q0, Just (p, u : us))
+        | done u -> Just (reverse (u : us))
         | u `member` v -> go q0 v
         | otherwise -> go toVisit visited
         where
-          update (p', u') = PriorityQueue.insert (u':u:us) (p <> p')
+          update (p', u') = PriorityQueue.insert (u' : u : us) (p <> p')
           visited = Set.insertNoDup u v
           toVisit = foldr update q0 (wNeighbours g u)

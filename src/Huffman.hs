@@ -1,9 +1,9 @@
 module Huffman (huffman) where
 
 import BinaryTree
+import Data.Bifunctor
 import Data.Map
 import PriorityQueue as Q
-import Data.Bifunctor
 
 huffman :: String -> BTree () (Char, [Bool])
 huffman = labelTree . huffmanTree . occurrences
