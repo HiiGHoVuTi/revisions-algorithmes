@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module PriorityQueue where
 
@@ -11,6 +12,7 @@ import Data.Data
 import Data.Foldable
 import Data.Function
 import Data.List (sortOn, unfoldr)
+import Data.Maybe
 import Data.Tuple
 import GHC.Generics
 
@@ -76,12 +78,18 @@ newtype FibonacciHeap p e = MkFibo {unFibo :: BT.BinomialForest (p, e)}
 
 reduceForest :: Ord p => BT.BinomialForest (p, e) -> FibonacciHeap p e
 -- FIXME(Maxime): le tri est de la triche
-reduceForest forest = MkFibo . foldl go [] $ sortOn BT.size forest
+reduceForest forest = MkFibo . minToHead . foldl go [] $ sortOn BT.size forest
   where
     go [] a = [a]
     go (x : xs) y
       | BT.size x /= BT.size y = y : x : xs
       | otherwise = go xs $ BT.combineSameHeight (compare `on` fst) x y
+
+    cmp = fst . BT.top
+    minToHead [] = []
+    minToHead (x : xs) =
+      uncurry (:) $
+        foldl (\(m, acc) y -> if cmp y < cmp m then (y, m : acc) else (m, y : acc)) (x, []) xs
 
 instance Ord p => Semigroup (FibonacciHeap p e) where
   MkFibo xs <> MkFibo ys = reduceForest (xs <> ys)
@@ -97,8 +105,11 @@ instance Ord p => PriorityQueue (FibonacciHeap p e) where
   type Elem (FibonacciHeap p e) = e
   type Priority (FibonacciHeap p e) = p
 
-  findMin = minimumByMaybe (compare `on` fst) . fmap BT.top . unFibo
-  insert e p (MkFibo roses) = MkFibo (BT.singleton (p, e) : roses)
+  findMin = fmap BT.top . listToMaybe . unFibo
+  insert e p (MkFibo []) = MkFibo [BT.singleton (p, e)]
+  insert e p (MkFibo (rose@(BT.top -> (p', _)) : roses))
+    | p <= p' = MkFibo (BT.singleton (p, e) : rose : roses)
+    | otherwise = MkFibo (rose : BT.singleton (p, e) : roses)
 
   deleteMin fh =
     let min' = findMin fh
