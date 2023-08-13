@@ -63,7 +63,10 @@ library
                     , RoseTree
                     , BinomialTree
                     , PriorityQueue
+                    , Set
                     , Huffman
+                    , Graph
+                    , Dijkstra
 
     -- Modules included in this library but not exported.
     other-modules:
@@ -76,6 +79,7 @@ library
                     , deepseq
                     -- NOTE(Maxime): acceptable
                     , vector
+                    , fingertree
                     -- TODO(Maxime): remove this dependency
                     , containers
 

@@ -9,12 +9,17 @@ import BinomialTree qualified as BT
 import Control.DeepSeq
 import Data.Coerce
 import Data.Data
+import Data.FingerTree
 import Data.Foldable
 import Data.Function
 import Data.List (sortOn, unfoldr)
 import Data.Maybe
 import Data.Tuple
 import GHC.Generics
+import Set (FingerSet (..), SetElem (..))
+import Set qualified
+
+type PQ a p e = (Elem a ~ e, Priority a ~ p, PriorityQueue a)
 
 class Monoid a => PriorityQueue a where
   type Elem a
@@ -37,7 +42,7 @@ peekPriority :: PriorityQueue a => a -> Maybe (Priority a)
 peekPriority = fmap fst . findMin
 
 queueSort :: forall a. (PriorityQueue a, Elem a ~ ()) => Proxy a -> [Priority a] -> [Priority a]
-queueSort _ = fmap fst . unfoldr (fmap swap . sequence . deleteMin @a) . fromList . zip (repeat ())
+queueSort _ = fmap fst . unfoldr (fmap swap . sequence . deleteMin @a) . PriorityQueue.fromList . zip (repeat ())
 
 instance Ord p => PriorityQueue [(p, e)] where
   type Elem [(p, e)] = e
@@ -70,6 +75,32 @@ instance Ord p => PriorityQueue (SkewHeap p e) where
   deleteMin (MkSkewHeap tree) = case tree of
     BLeaf () -> (mempty, Nothing)
     BNode a b c -> (coerce b <> coerce c, Just a)
+
+newtype First a = First {getFirst :: a}
+  deriving (Generic, NFData)
+
+instance Eq a => Eq (First (a, b)) where
+  First (a, _) == First (b, _) = a == b
+
+instance Ord a => Ord (First (a, b)) where
+  compare (First (a, _)) (First (b, _)) = compare a b
+
+instance Bounded a => Bounded (First (a, b)) where
+  maxBound = First (maxBound, undefined)
+  minBound = First (minBound, undefined)
+
+type FingerQueue p e = FingerSet (First (p,e))
+instance (Ord p, Bounded p) => PriorityQueue (FingerQueue p e) where
+  type Priority (FingerSet (First (p, e))) = p
+  type Elem (FingerSet (First (p, e))) = e
+
+  findMin (MkFingerSet xs) = case viewl xs of
+    EmptyL -> Nothing
+    SetElem x :< _ -> Just (getFirst x)
+  deleteMin (MkFingerSet xs) = case viewl xs of
+    EmptyL -> (MkFingerSet xs, Nothing)
+    SetElem x :< xs' -> (MkFingerSet xs', Just (getFirst x))
+  insert e p = Set.unsafeInsert (First (p, e))
 
 -- NOTE(Maxime): beaucoup d'invariants,
 -- implémentation peu respectueuse du réel algorithme qui demande beaucoup plus de pointeurs pour se débarrasser des logs

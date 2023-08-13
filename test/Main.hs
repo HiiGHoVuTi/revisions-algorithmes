@@ -5,9 +5,13 @@ import Data.Data
 import Data.Foldable (for_)
 import Data.Function
 import Data.List (nubBy, sort, sortOn, unfoldr)
+import Data.Monoid (Sum)
 import Data.STRef
 import Data.Tuple
+import Dijkstra
+import Graph
 import PriorityQueue as Q
+import Set (toList')
 import Test.Tasty.Bench
 import Test.Tasty.QuickCheck
 
@@ -46,6 +50,9 @@ etalonFile n = runST $ do
     writeSTRef q q3
   readSTRef q
 
+correctionDijkstra :: forall w k. (Eq w, Ord w, Monoid w, Eq k, Ord k, Bounded k, Show w, Show k) => WeightedGraph k w -> k -> k -> ([k] -> Bool) -> Bool
+correctionDijkstra g u v p = maybe False p (dijkstra @(SkewHeap w [k]) Proxy g u (== v))
+
 main :: IO ()
 main =
   defaultMain
@@ -53,8 +60,11 @@ main =
       bgroup
         "file de priorité"
         [ testProperty
-            "correction SkewHeap"
+            "correction tas d'inclinaison"
             (correctionFile @(SkewHeap Int Char) Proxy),
+          testProperty
+            "correction arbre à doigts"
+            (correctionFile @(FingerQueue Int Char) Proxy),
           testProperty
             "correction tas de Fibonacci"
             (correctionFile @(FibonacciHeap Int Char) Proxy),
@@ -67,13 +77,20 @@ main =
                   pure $
                     bench name $
                       nf (etalonFile @[(Int, ())]) n,
-              bgroup "étalonnage tas SkewHeap" $
+              bgroup "étalonnage tas d'inclinaison" $
                 do
                   n <- [100, 1_000, 10_000, 100_000, 1_000_000]
                   let name = "n = " <> show n
                   pure $
                     bench name $
                       nf (etalonFile @(SkewHeap Int ())) n,
+              bgroup "étalonnage tas arbre à doigts" $
+                do
+                  n <- [100, 1_000, 10_000, 100_000] -- , 1_000_000]
+                  let name = "n = " <> show n
+                  pure $
+                    bench name $
+                      nf (toList' . etalonFile @(FingerQueue Int ())) n,
               bgroup "étalonnage tas de Fibonacci" $
                 do
                   n <- [100, 1_000, 10_000, 100_000, 1_000_000]
@@ -93,7 +110,7 @@ main =
                       nf
                         sort
                         [i ^ (5 :: Integer) `mod` 35317 :: Integer | i <- [1 .. n]],
-              bgroup "étalonnage tas SkewHeap" $
+              bgroup "étalonnage tas d'inclinaison" $
                 do
                   n <- [100, 1_000, 10_000, 100_000, 1_000_000]
                   let name = "n = " <> show n
@@ -102,6 +119,15 @@ main =
                       nf
                         (queueSort @(SkewHeap Integer ()) Proxy)
                         [i ^ (5 :: Integer) `mod` 35317 | i <- [1 .. n]],
+              bgroup "étalonnage arbre à doigts" $
+                do
+                  n <- [100, 1_000, 10_000, 100_000] -- , 1_000_000]
+                  let name = "n = " <> show n
+                  pure $
+                    bench name $
+                      nf
+                        (queueSort @(FingerQueue Int ()) Proxy)
+                        [i ^ (5 :: Int) `mod` 35317 | i <- [1 .. n]],
               bgroup "étalonnage tas de Fibonacci" $
                 do
                   n <- [100, 1_000, 10_000, 100_000, 1_000_000]
@@ -111,6 +137,23 @@ main =
                       nf
                         (queueSort @(FibonacciHeap Integer ()) Proxy)
                         [i ^ (5 :: Integer) `mod` 35317 | i <- [1 .. n]]
+            ]
+        ],
+      bgroup
+        "parcours de graphe"
+        [ bgroup
+            "dijkstra sur des graphes exemples"
+            [ testProperty "correction dijkstra" $
+                let isIncreasing [] = True
+                    isIncreasing [_] = True
+                    isIncreasing ((a, b) : (c, d) : rest) = a <= c && b <= d && isIncreasing ((c, d) : rest)
+                 in \n m ->
+                      (n >= 1 && m >= 1)
+                        ==> correctionDijkstra
+                          (uniformWeight (exGraphLattice n m) (1 :: Sum Int))
+                          (1, 1)
+                          (n, m)
+                          isIncreasing
             ]
         ]
     ]
