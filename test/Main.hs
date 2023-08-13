@@ -11,7 +11,6 @@ import Data.Tuple
 import Dijkstra
 import Graph
 import PriorityQueue as Q
-import Set (toList')
 import Test.Tasty.Bench
 import Test.Tasty.QuickCheck
 
@@ -63,8 +62,8 @@ main =
             "correction tas d'inclinaison"
             (correctionFile @(SkewHeap Int Char) Proxy),
           testProperty
-            "correction arbre à doigts"
-            (correctionFile @(FingerQueue Int Char) Proxy),
+            "correction tas rouge noir"
+            (correctionFile @(RBQueue Int Char) Proxy),
           testProperty
             "correction tas de Fibonacci"
             (correctionFile @(FibonacciHeap Int Char) Proxy),
@@ -84,13 +83,13 @@ main =
                   pure $
                     bench name $
                       nf (etalonFile @(SkewHeap Int ())) n,
-              bgroup "étalonnage tas arbre à doigts" $
+              bgroup "étalonnage tas arbre rouge noir" $
                 do
-                  n <- [100, 1_000, 10_000, 100_000] -- , 1_000_000]
+                  n <- [100, 1_000, 10_000, 100_000, 1_000_000]
                   let name = "n = " <> show n
                   pure $
                     bench name $
-                      nf (toList' . etalonFile @(FingerQueue Int ())) n,
+                      nf (etalonFile @(RBQueue Int ())) n,
               bgroup "étalonnage tas de Fibonacci" $
                 do
                   n <- [100, 1_000, 10_000, 100_000, 1_000_000]
@@ -119,14 +118,14 @@ main =
                       nf
                         (queueSort @(SkewHeap Integer ()) Proxy)
                         [i ^ (5 :: Integer) `mod` 35317 | i <- [1 .. n]],
-              bgroup "étalonnage arbre à doigts" $
+              bgroup "étalonnage arbre rouge noir" $
                 do
-                  n <- [100, 1_000, 10_000, 100_000] -- , 1_000_000]
+                  n <- [100, 1_000, 10_000, 100_000, 1_000_000]
                   let name = "n = " <> show n
                   pure $
                     bench name $
                       nf
-                        (queueSort @(FingerQueue Int ()) Proxy)
+                        (queueSort @(RBQueue Int ()) Proxy)
                         [i ^ (5 :: Int) `mod` 35317 | i <- [1 .. n]],
               bgroup "étalonnage tas de Fibonacci" $
                 do

@@ -18,9 +18,9 @@ dijkstra ::
 dijkstra _ g start done =
   go
     (PriorityQueue.singleton [start] (mempty @w))
-    (mempty @(FingerSet k))
+    (mempty @(RBTree k))
   where
-    go q v = case deleteMin @pq q of
+    go q v = case PriorityQueue.deleteMin @pq q of
       (_, Nothing) -> Nothing
       (_, Just (_, [])) -> error "impossible"
       (q0, Just (p, u:us))
@@ -29,5 +29,5 @@ dijkstra _ g start done =
         | otherwise -> go toVisit visited
         where
           update (p', u') = PriorityQueue.insert (u':u:us) (p <> p')
-          visited = Set.insert u v
+          visited = Set.insertNoDup u v
           toVisit = foldr update q0 (wNeighbours g u)

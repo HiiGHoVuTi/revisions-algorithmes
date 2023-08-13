@@ -1,53 +1,77 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Set where
 
 import Control.DeepSeq
-import Data.Coerce
-import Data.FingerTree
 import Data.Foldable
-import Data.Semigroup (Max (..))
 import GHC.Generics
 
-newtype SetElem a = SetElem {unSetElem :: a}
-  deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Generic, NFData)
+data Colour = R | B
+  deriving (Eq, Ord, Enum, Generic, NFData)
 
-newtype FingerSet a = MkFingerSet {unFingerSet :: FingerTree (Max a) (SetElem a)}
-  deriving (Show, Generic)
+data RBTree a = Nil | Node Colour (RBTree a) a (RBTree a)
+  deriving (Eq, Functor, Foldable, Traversable, Generic, NFData)
 
-instance (Ord a, Bounded a) => Measured (Max a) (SetElem a) where
-  measure = coerce
+root :: RBTree a -> Maybe a
+root Nil = Nothing
+root (Node _ _ x _) = Just x
 
-toList' :: FingerSet a -> [SetElem a]
-toList' (MkFingerSet xs) = toList xs
+leftmost :: RBTree a -> Maybe a
+leftmost Nil = Nothing
+leftmost (Node _ Nil x _) = Just x
+leftmost (Node _ l _ _) = leftmost l
 
-instance (Ord a, Bounded a) => Semigroup (FingerSet a) where
-  -- FIXME(Maxime): wrong complexity
-  a <> b = foldr insert a (coerce <$> toList' b)
+rightmost :: RBTree a -> Maybe a
+rightmost Nil = Nothing
+rightmost (Node _ _ x Nil) = Just x
+rightmost (Node _ _ _ r) = rightmost r
 
-instance (Ord a, Bounded a) => Monoid (FingerSet a) where
-  mempty = MkFingerSet empty
 
-singleton :: (Ord a, Bounded a) => a -> FingerSet a
-singleton a = MkFingerSet (Data.FingerTree.singleton (coerce a))
+member :: Ord a => a -> RBTree a -> Bool
+member _ Nil = False
+member x (Node _ l y r)
+  | x == y = True
+  | x < y = member x l
+  | otherwise = member x r
 
-insert :: (Ord a, Bounded a) => a -> FingerSet a -> FingerSet a
-insert x set@(MkFingerSet xs)
-  | x `member` set = set
-  | otherwise = MkFingerSet $ l >< Data.FingerTree.singleton (SetElem x) >< r
+balance :: Colour -> RBTree a -> a -> RBTree a -> RBTree a
+balance B (Node R (Node R x a y) b z) c w = Node R (Node B x a y) b (Node B z c w)
+balance B (Node R x a (Node R y b z)) c w = Node R (Node B x a y) b (Node B z c w)
+balance B x a (Node R (Node R y b z) c w) = Node R (Node B x a y) b (Node B z c w)
+balance B x a (Node R y b (Node R z c w)) = Node R (Node B x a y) b (Node B z c w)
+balance c l x r = Node c l x r
+
+makeRootBlack :: RBTree a -> RBTree a
+makeRootBlack Nil = Nil
+makeRootBlack (Node _ l a r) = Node B l a r
+
+insert :: Ord a => a -> RBTree a -> RBTree a
+insert x xs = makeRootBlack (go xs)
   where
-    (l, r) = split (>= Max x) xs
+    go Nil = Node R Nil x Nil
+    go (Node c l y r)
+      | x <= y = balance c (go l) y r
+      | otherwise = balance c l y (go r)
 
-unsafeInsert :: (Ord a, Bounded a) => a -> FingerSet a -> FingerSet a
-unsafeInsert x (MkFingerSet xs) = MkFingerSet $ l >< Data.FingerTree.singleton (SetElem x) >< r
+insertNoDup :: Ord a => a -> RBTree a -> RBTree a
+insertNoDup x xs = makeRootBlack (go xs)
   where
-    (l, r) = split (>= Max x) xs
+    go Nil = Node R Nil x Nil
+    go (Node c l y r)
+      | x == y = Node c l y r
+      | x < y = balance c (go l) y r
+      | otherwise = balance c l y (go r)
 
-member :: (Ord a, Bounded a) => a -> FingerSet a -> Bool
-member x (MkFingerSet xs) = case viewl (snd (split (>= Max x) xs)) of
-  y :< _ | SetElem x == y -> True
-  _ -> False
+deleteMin :: Ord a => RBTree a -> (RBTree a, Maybe a)
+deleteMin Nil = (Nil, Nothing)
+deleteMin (Node _ Nil x r) = (r, Just x)
+deleteMin (Node c l x r) = (balance c l' x r, out)
+  where
+    (l', out) = deleteMin l
 
-delete :: (Ord a, Bounded a) => a -> FingerSet a -> FingerSet a
-delete x (MkFingerSet xs) = MkFingerSet $
-  case search (const (>= Max x)) xs of
-    Position l y r | SetElem x == y -> l >< r
-    _ -> xs
+
+instance Ord a => Semigroup (RBTree a) where
+  a <> b = foldr insert a (toList b)
+
+instance Ord a => Monoid (RBTree a) where
+  mempty = Nil

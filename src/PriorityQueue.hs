@@ -9,14 +9,13 @@ import BinomialTree qualified as BT
 import Control.DeepSeq
 import Data.Coerce
 import Data.Data
-import Data.FingerTree
 import Data.Foldable
 import Data.Function
 import Data.List (sortOn, unfoldr)
 import Data.Maybe
 import Data.Tuple
 import GHC.Generics
-import Set (FingerSet (..), SetElem (..))
+import Set hiding (deleteMin)
 import Set qualified
 
 type PQ a p e = (Elem a ~ e, Priority a ~ p, PriorityQueue a)
@@ -30,10 +29,10 @@ class Monoid a => PriorityQueue a where
   insert :: Elem a -> Priority a -> a -> a
 
 singleton :: PriorityQueue a => Elem a -> Priority a -> a
-singleton e p = insert e p mempty
+singleton e p = PriorityQueue.insert e p mempty
 
 fromList :: PriorityQueue a => [(Elem a, Priority a)] -> a
-fromList = foldl (\q (e, p) -> insert e p q) mempty
+fromList = foldl (\q (e, p) -> PriorityQueue.insert e p q) mempty
 
 peek :: PriorityQueue a => a -> Maybe (Elem a)
 peek = fmap snd . findMin
@@ -71,7 +70,7 @@ instance Ord p => PriorityQueue (SkewHeap p e) where
   type Priority (SkewHeap p e) = p
 
   insert e p sk = coerce (BNode (p, e) (BLeaf ()) (BLeaf ())) <> sk
-  findMin = root . unSkewHeap
+  findMin = BinaryTree.root . unSkewHeap
   deleteMin (MkSkewHeap tree) = case tree of
     BLeaf () -> (mempty, Nothing)
     BNode a b c -> (coerce b <> coerce c, Just a)
@@ -89,18 +88,15 @@ instance Bounded a => Bounded (First (a, b)) where
   maxBound = First (maxBound, undefined)
   minBound = First (minBound, undefined)
 
-type FingerQueue p e = FingerSet (First (p,e))
-instance (Ord p, Bounded p) => PriorityQueue (FingerQueue p e) where
-  type Priority (FingerSet (First (p, e))) = p
-  type Elem (FingerSet (First (p, e))) = e
+type RBQueue p e = RBTree (First (p, e))
 
-  findMin (MkFingerSet xs) = case viewl xs of
-    EmptyL -> Nothing
-    SetElem x :< _ -> Just (getFirst x)
-  deleteMin (MkFingerSet xs) = case viewl xs of
-    EmptyL -> (MkFingerSet xs, Nothing)
-    SetElem x :< xs' -> (MkFingerSet xs', Just (getFirst x))
-  insert e p = Set.unsafeInsert (First (p, e))
+instance Ord p => PriorityQueue (RBQueue p e) where
+  type Elem (RBQueue p e) = e
+  type Priority (RBQueue p e) = p
+
+  findMin = coerce . leftmost
+  deleteMin = coerce . Set.deleteMin
+  insert e p = Set.insert (coerce (p, e))
 
 -- NOTE(Maxime): beaucoup d'invariants,
 -- implémentation peu respectueuse du réel algorithme qui demande beaucoup plus de pointeurs pour se débarrasser des logs
