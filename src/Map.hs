@@ -33,9 +33,23 @@ member x xs = S.member (makeFirst x) (unMap xs)
 insert :: Ord k => k -> v -> Map k v -> Map k v
 insert k v = MkMap . S.insert (First (k, v)) . unMap
 
-fromList :: Ord k => [(k,v)] -> Map k v
+fromList :: Ord k => [(k, v)] -> Map k v
 fromList = foldr (uncurry insert) mempty
 
--- TODO(Maxime): modify, alter, ...
+(!?) :: Ord k => Map k v -> k -> Maybe v
+MkMap tree !? k = case tree of
+  S.Nil -> Nothing
+  S.Node _ l (First (k', v)) r
+    | k == k' -> Just v
+    | k < k' -> MkMap l !? k
+    | otherwise -> MkMap r !? k
 
+change :: Ord k => ((k,v) -> v) -> k -> Map k v -> Map k v
+change f k (MkMap tree) = MkMap $ case tree of
+  S.Nil -> S.Nil
+  S.Node c l x@(First (k', v)) r
+    | k == k' -> S.Node c l (First (k, f (k, v))) r
+    | k < k' -> S.Node c (unMap (change f k (MkMap l))) x r
+    | otherwise -> S.Node c l x (unMap (change f k (MkMap r)))
 
+-- TODO(Maxime): other helpers
