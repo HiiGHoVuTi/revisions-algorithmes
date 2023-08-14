@@ -10,6 +10,7 @@ import Data.STRef
 import Data.Tuple
 import Dijkstra
 import Graph
+import Levenstein
 import PriorityQueue as Q
 import Test.Tasty.Bench
 import Test.Tasty.QuickCheck
@@ -184,5 +185,10 @@ main =
         [ testProperty "correction arbre préfixe" correctionPrefixe,
           testProperty "correction anagrammes exemple" correctionAnagrammesEx,
           testProperty "correction anagrammes" correctionAnagrammes
+        ],
+      bgroup
+        "algorithmes de texte"
+        [ testProperty "correction Levenstein" $ \(v :: Int, w, x, y, z) gs ->
+            length gs <= 20 ==> let a = [v, w, x, y, z]; b = gs in levensteinNaive a b == levenstein a b
         ]
     ]
