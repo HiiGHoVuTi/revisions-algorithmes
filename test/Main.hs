@@ -4,7 +4,7 @@ import Control.Monad.ST
 import Data.Data
 import Data.Foldable (for_)
 import Data.Function
-import Data.List (nubBy, sort, sortOn, unfoldr)
+import Data.List (nubBy, permutations, sort, sortOn, unfoldr)
 import Data.Monoid (Sum)
 import Data.STRef
 import Data.Tuple
@@ -13,6 +13,7 @@ import Graph
 import PriorityQueue as Q
 import Test.Tasty.Bench
 import Test.Tasty.QuickCheck
+import Trie qualified
 
 correctionFile ::
   forall a.
@@ -51,6 +52,29 @@ etalonFile n = runST $ do
 
 correctionDijkstra :: forall w k. (Eq w, Ord w, Monoid w, Eq k, Ord k, Bounded k, Show w, Show k) => WeightedGraph k w -> k -> k -> ([k] -> Bool) -> Bool
 correctionDijkstra g u v p = maybe False p (dijkstra @(SkewHeap w [k]) Proxy g u (== v))
+
+correctionPrefixe :: [String] -> [String] -> Bool
+correctionPrefixe strs' contra' =
+  all (`Trie.member` arb) strs
+    && not (any (`Trie.member` arb) contra)
+  where
+    arb = foldr Trie.insert Trie.empty strs
+    strs = filter (not . null) strs'
+    contra = filter (`notElem` strs) contra'
+
+correctionAnagrammesEx :: Bool
+correctionAnagrammesEx = all (`elem` ana') ana && all (`elem` ana) ana'
+  where
+    ana = ["pirate", "paitre", "parite", "patrie", "partie", "pretai", "repait", "etripa"]
+    ana' = Trie.anagrammes "pirate" arb
+    arb = foldr Trie.insert Trie.empty (ana ++ ["dodu", "etrier", "haricot", "pretre", "pretait", "patriote"])
+
+correctionAnagrammes :: [String] -> String -> Property
+correctionAnagrammes noise word = word /= "" && length word <= 6 ==> all (`elem` ana') ana && all (`elem` ana) ana'
+  where
+    ana = permutations word
+    ana' = Trie.anagrammes word arb
+    arb = foldr Trie.insert Trie.empty (ana ++ filter (not . null) noise)
 
 main :: IO ()
 main =
@@ -154,5 +178,11 @@ main =
                           (n, m)
                           isIncreasing
             ]
+        ],
+      bgroup
+        "arbre préfixe"
+        [ testProperty "correction arbre préfixe" correctionPrefixe,
+          testProperty "correction anagrammes exemple" correctionAnagrammesEx,
+          testProperty "correction anagrammes" correctionAnagrammes
         ]
     ]
