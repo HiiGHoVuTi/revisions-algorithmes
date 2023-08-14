@@ -7,6 +7,7 @@ import Data.Vector as V
 levenstein :: (Eq a) => [a] -> [a] -> Int
 levenstein (fromList -> a) (fromList -> b) = lev (V.length a) (V.length b)
   where
+    levVec :: Vector (Vector Int)
     levVec = fromList [fromList [lev i j | j <- [0 .. V.length b]] | i <- [0 .. V.length a]]
 
     lev :: Int -> Int -> Int
@@ -27,7 +28,7 @@ levensteinNaive [] [] = 0
 levensteinNaive [] ys = Prelude.length ys
 levensteinNaive xs [] = Prelude.length xs
 levensteinNaive (x : xs) (y : ys)
-  | x == y = levenstein xs ys
+  | x == y = levensteinNaive xs ys
   | otherwise =
       1
         + Prelude.minimum
