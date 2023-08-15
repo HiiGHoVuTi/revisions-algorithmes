@@ -4,12 +4,13 @@ import Control.Monad.ST
 import Data.Data
 import Data.Foldable (for_)
 import Data.Function
-import Data.List (nubBy, permutations, sort, sortOn, unfoldr)
+import Data.List (genericLength, nub, nubBy, permutations, sort, sortOn, unfoldr)
 import Data.Monoid (Sum)
 import Data.STRef
 import Data.Tuple
 import Dijkstra
 import Graph
+import LZW qualified
 import Levenstein
 import PriorityQueue as Q
 import Test.Tasty.Bench
@@ -191,6 +192,9 @@ main =
         [ testProperty "correction Levenstein" $ \(v :: Int, w, x, y, z) gs ->
             length gs <= 20 ==> let a = [v, w, x, y, z]; b = gs in levensteinNaive a b == levenstein a b,
           bench "Levenstein naïf" $ nf (uncurry levensteinNaive) (show @[Int] [1 .. 7], show @[Int] [6 .. 11]),
-          bench "Levenstein avec vecteur" $ nf (uncurry levenstein) (show @[Int] [1 .. 7], show @[Int] [6 .. 11])
+          bench "Levenstein avec vecteur" $ nf (uncurry levenstein) (show @[Int] [1 .. 7], show @[Int] [6 .. 11]),
+          testProperty "correction LZW" $ \text ->
+            let alphabet = nub text; d = ceiling (logBase @Float 2 (genericLength alphabet)) + 2
+             in LZW.decompress alphabet d (LZW.compress alphabet d text) == text
         ]
     ]
