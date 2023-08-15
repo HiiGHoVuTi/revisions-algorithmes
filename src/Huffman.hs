@@ -2,7 +2,7 @@ module Huffman (huffman) where
 
 import BinaryTree
 import Data.Bifunctor
-import Data.Map
+import Map
 import PriorityQueue as Q
 
 huffman :: String -> BTree () (Char, [Bool])
@@ -12,8 +12,8 @@ occurrences :: String -> SkewHeap Int (BTree () Char)
 occurrences =
   Q.fromList
     . fmap (first BLeaf)
-    . toList
-    . Prelude.foldl (\m k -> insertWith (+) k 1 m) mempty
+    . toPairs
+    . Prelude.foldl (\m k -> insertModify k (maybe 1 succ) m) mempty
 
 huffmanTree :: SkewHeap Int (BTree () Char) -> BTree () Char
 huffmanTree q = case Q.deleteMin q of
